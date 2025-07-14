@@ -51,6 +51,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
         $_SESSION['id_user'] = $user['id_user'];
         $_SESSION['role'] = $user['role'];
         $_SESSION['email'] = $user['email'];
+        $_SESSION['nama'] = $user['nama'];
         $_SESSION['photo_profile'] = $user['photo_profile'];
 
         $_SESSION['alert_type'] = 'success';
