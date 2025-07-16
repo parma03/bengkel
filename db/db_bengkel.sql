@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 14, 2025 at 01:17 PM
+-- Generation Time: Jul 16, 2025 at 04:52 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -44,6 +44,18 @@ CREATE TABLE `tb_barang` (
 INSERT INTO `tb_barang` (`id_barang`, `nama_barang`, `stok_barang`, `foto_barang`, `harga_barang`, `created_at`, `updated_at`) VALUES
 (1, 'oli Yamalube', 100, '68716f41d233e.jpg', 10000.00, '2025-07-12 03:07:52', '2025-07-12 03:08:33'),
 (2, 'oli Yamalube Merah', 2999, NULL, 100000.00, '2025-07-12 03:08:58', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tb_pengerjaan`
+--
+
+CREATE TABLE `tb_pengerjaan` (
+  `id_pengerjaan` bigint(11) NOT NULL,
+  `id_transaksi` bigint(11) NOT NULL,
+  `id_barang_or_service` bigint(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -91,7 +103,7 @@ CREATE TABLE `tb_transaksi` (
 --
 
 INSERT INTO `tb_transaksi` (`id_transaksi`, `id_user`, `type_kendaraan`, `total_harga`, `status_pembayaran`, `order_id`, `snap_token`, `created_at`, `updated_at`) VALUES
-(2, 8, 'Motor', 100000.00, 'selesai', NULL, NULL, '2025-07-14 16:23:24', '2025-07-14 18:13:32');
+(3, 8, 'Motor', 100000.00, 'dikerjakan', 'ORDER-3-1752498617', '3d6d69a9-16bf-4d44-b3ec-b661ec55c81b', '2025-07-14 18:39:23', '2025-07-16 09:47:08');
 
 -- --------------------------------------------------------
 
@@ -137,6 +149,14 @@ ALTER TABLE `tb_barang`
   ADD PRIMARY KEY (`id_barang`);
 
 --
+-- Indexes for table `tb_pengerjaan`
+--
+ALTER TABLE `tb_pengerjaan`
+  ADD PRIMARY KEY (`id_pengerjaan`),
+  ADD KEY `id_transaksi` (`id_transaksi`),
+  ADD KEY `id_barang_or_service` (`id_barang_or_service`);
+
+--
 -- Indexes for table `tb_service`
 --
 ALTER TABLE `tb_service`
@@ -166,6 +186,12 @@ ALTER TABLE `tb_barang`
   MODIFY `id_barang` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
+-- AUTO_INCREMENT for table `tb_pengerjaan`
+--
+ALTER TABLE `tb_pengerjaan`
+  MODIFY `id_pengerjaan` bigint(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `tb_service`
 --
 ALTER TABLE `tb_service`
@@ -175,7 +201,7 @@ ALTER TABLE `tb_service`
 -- AUTO_INCREMENT for table `tb_transaksi`
 --
 ALTER TABLE `tb_transaksi`
-  MODIFY `id_transaksi` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id_transaksi` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `tb_user`

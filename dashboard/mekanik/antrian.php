@@ -10,11 +10,11 @@ $alert_icon = '';
 
 // Pengecekan session untuk redirect jika sudah login
 if (isset($_SESSION['role'])) {
-    if ($_SESSION['role'] === 'mekanik') {
-        header("Location: ../dashboard/mekanik/index.php");
-        exit();
-    } else if ($_SESSION['role'] === 'administrator') {
+    if ($_SESSION['role'] === 'administrator') {
         header("Location: ../dashboard/admin/index.php");
+        exit();
+    } else if ($_SESSION['role'] === 'kasir') {
+        header("Location: ../dashboard/kasir/index.php");
         exit();
     } else if ($_SESSION['role'] === 'konsumen') {
         header("Location: ../dashboard/konsumen/index.php");
@@ -22,14 +22,15 @@ if (isset($_SESSION['role'])) {
     }
 }
 
-// Process payment with Midtrans
+// Process actions
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if (isset($_POST['action']) && $_POST['action'] == 'delete') {
+    // Konfirmasi dikerjakan
+    if (isset($_POST['action']) && $_POST['action'] == 'konfirmasi_dikerjakan') {
         try {
             $id_transaksi = $_POST['id_transaksi'];
 
             // Check if transaction exists and has correct status
-            $stmt = $pdo->prepare("SELECT * FROM tb_transaksi WHERE id_transaksi = ? AND status_pembayaran IN ('failed', 'cancelled')");
+            $stmt = $pdo->prepare("SELECT * FROM tb_transaksi WHERE id_transaksi = ? AND status_pembayaran = 'menunggu'");
             $stmt->execute([$id_transaksi]);
             $transaksi = $stmt->fetch();
 
@@ -37,12 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 throw new Exception('Transaksi tidak ditemukan atau status tidak valid');
             }
 
-            // Delete the transaction
-            $stmt = $pdo->prepare("DELETE FROM tb_transaksi WHERE id_transaksi = ?");
+            // Update status to 'dikerjakan' and assign mekanik
+            $stmt = $pdo->prepare("UPDATE tb_transaksi SET status_pembayaran = 'dikerjakan', updated_at = NOW() WHERE id_transaksi = ?");
             $stmt->execute([$id_transaksi]);
 
             // Set success message
-            $_SESSION['alert_message'] = 'Transaksi berhasil dihapus';
+            $_SESSION['alert_message'] = 'Transaksi berhasil dikonfirmasi dan status diubah menjadi dikerjakan';
             $_SESSION['alert_type'] = 'success';
             $_SESSION['alert_title'] = 'Berhasil!';
             $_SESSION['alert_icon'] = 'success';
@@ -51,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => true,
-                'message' => 'Transaksi berhasil dihapus'
+                'message' => 'Transaksi berhasil dikonfirmasi'
             ]);
             exit();
         } catch (Exception $e) {
@@ -65,7 +66,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-
 // Ambil alert dari session dan hapus setelah digunakan
 $alert_message = isset($_SESSION['alert_message']) ? $_SESSION['alert_message'] : '';
 $alert_type = isset($_SESSION['alert_type']) ? $_SESSION['alert_type'] : '';
@@ -75,8 +75,8 @@ $alert_icon = isset($_SESSION['alert_icon']) ? $_SESSION['alert_icon'] : '';
 // Hapus alert dari session setelah digunakan
 unset($_SESSION['alert_message'], $_SESSION['alert_type'], $_SESSION['alert_title'], $_SESSION['alert_icon']);
 
-// Fetch transaksi with specific status
-$stmt = $pdo->prepare("SELECT t.*, u.nama, u.email, u.nohp FROM tb_transaksi t JOIN tb_user u ON t.id_user = u.id_user WHERE t.status_pembayaran IN ('failed', 'cancelled') ORDER BY t.created_at DESC");
+// Fetch transaksi dengan status 'menunggu' saja
+$stmt = $pdo->prepare("SELECT t.*, u.nama, u.email, u.nohp FROM tb_transaksi t JOIN tb_user u ON t.id_user = u.id_user WHERE t.status_pembayaran = 'menunggu' ORDER BY t.created_at ASC");
 $stmt->execute();
 $transaksi = $stmt->fetchAll();
 ?>
@@ -85,7 +85,7 @@ $transaksi = $stmt->fetchAll();
 <!-- [Head] start -->
 
 <head>
-    <title>Transaksi Management | Datta Able Dashboard Template</title>
+    <title>Antrian Transaksi | Datta Able Dashboard Template</title>
     <!-- [Meta] -->
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui" />
@@ -119,22 +119,21 @@ $transaksi = $stmt->fetchAll();
     <!-- SweetAlert2 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 
-    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="Mid-client-HxtMaomSfaOxOq09"></script>
-
     <style>
-        .btn-danger {
-            background: linear-gradient(45deg, #e74c3c, #c0392b);
+        .btn-confirm {
+            background: linear-gradient(45deg, #28a745, #20c997);
             border: none;
             color: white;
             padding: 8px 16px;
             border-radius: 6px;
             transition: all 0.3s ease;
+            font-size: 13px;
         }
 
-        .btn-danger:hover {
+        .btn-confirm:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
-            background: linear-gradient(45deg, #c0392b, #a93226);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+            background: linear-gradient(45deg, #20c997, #17a2b8);
         }
 
         .status-badge {
@@ -148,30 +147,69 @@ $transaksi = $stmt->fetchAll();
         .status-menunggu {
             background-color: #fff3cd;
             color: #856404;
+            border: 1px solid #ffeaa7;
         }
 
         .status-dikerjakan {
             background-color: #d4edda;
             color: #155724;
+            border: 1px solid #c3e6cb;
         }
 
         .status-selesai {
             background-color: #d1ecf1;
             color: #0c5460;
+            border: 1px solid #bee5eb;
         }
 
-        .btn-bayar {
-            background: linear-gradient(45deg, #00d4aa, #00b894);
-            border: none;
+        .priority-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 8px;
+        }
+
+        .priority-high {
+            background-color: #ff6b6b;
             color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            transition: all 0.3s ease;
         }
 
-        .btn-bayar:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 212, 170, 0.3);
+        .priority-normal {
+            background-color: #4ecdc4;
+            color: white;
+        }
+
+        .antrian-counter {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .antrian-counter h3 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .antrian-counter p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+
+        .table-responsive {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
@@ -202,11 +240,11 @@ $transaksi = $stmt->fetchAll();
             <div class="page-header">
                 <div class="page-block">
                     <div class="page-header-title">
-                        <h5 class="mb-0 font-medium">Transaksi Management</h5>
+                        <h5 class="mb-0 font-medium">Antrian Transaksi</h5>
                     </div>
                     <ul class="breadcrumb">
                         <li class="breadcrumb-item" aria-current="page">Transaksi</li>
-                        <li class="breadcrumb-item"><a href="aktif.php">Data Transaksi Aktif</a></li>
+                        <li class="breadcrumb-item"><a href="antrian.php">Antrian</a></li>
                     </ul>
                 </div>
             </div>
@@ -214,55 +252,111 @@ $transaksi = $stmt->fetchAll();
 
             <!-- [ Main Content ] start -->
             <div class="grid grid-cols-12 gap-x-6">
+                <!-- Counter Card -->
+                <div class="col-span-12 md:col-span-4">
+                    <div class="antrian-counter">
+                        <h3><?= count($transaksi) ?></h3>
+                        <p>Transaksi Dalam Antrian</p>
+                    </div>
+                </div>
+
                 <div class="col-span-12">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="card-title">Data Transaksi</h5>
+                            <h5 class="card-title">
+                                <i class="fas fa-clock text-warning"></i> Data Antrian Transaksi
+                            </h5>
                             <div class="card-header-right">
-                                <span class="badge bg-info">Total: <?= count($transaksi) ?> Transaksi</span>
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-hourglass-half"></i> Menunggu: <?= count($transaksi) ?>
+                                </span>
                             </div>
                         </div>
                         <div class="card-body">
-                            <table id="transaksiTable" class="display" style="width:100%">
-                                <thead>
-                                    <tr>
-                                        <th>No</th>
-                                        <th>Order ID</th>
-                                        <th>Nama Konsumen</th>
-                                        <th>Email</th>
-                                        <th>No HP</th>
-                                        <th>Type Kendaraan</th>
-                                        <th>Total Harga</th>
-                                        <th>Status</th>
-                                        <th>Tanggal</th>
-                                        <th>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($transaksi as $index => $item): ?>
-                                        <tr>
-                                            <td><?= $index + 1 ?></td>
-                                            <td><?= htmlspecialchars($item['order_id']) ?></td>
-                                            <td><?= htmlspecialchars($item['nama']) ?></td>
-                                            <td><?= htmlspecialchars($item['email']) ?></td>
-                                            <td><?= htmlspecialchars($item['nohp']) ?></td>
-                                            <td><?= htmlspecialchars($item['type_kendaraan']) ?></td>
-                                            <td>Rp <?= number_format($item['total_harga'], 0, ',', '.') ?></td>
-                                            <td>
-                                                <span class="status-badge status-<?= $item['status_pembayaran'] ?>">
-                                                    <?= ucfirst($item['status_pembayaran']) ?>
-                                                </span>
-                                            </td>
-                                            <td><?= date('d/m/Y H:i', strtotime($item['created_at'])) ?></td>
-                                            <td>
-                                                <button class="btn btn-danger btn-sm" onclick="deleteTransaksi(<?= $item['id_transaksi'] ?>)">
-                                                    <i class="fas fa-trash"></i> Hapus
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
+                            <?php if (empty($transaksi)): ?>
+                                <div class="text-center py-5">
+                                    <i class="fas fa-clipboard-check text-success" style="font-size: 4rem; opacity: 0.3;"></i>
+                                    <h4 class="mt-3 text-muted">Tidak Ada Antrian</h4>
+                                    <p class="text-muted">Saat ini tidak ada transaksi yang menunggu untuk dikerjakan</p>
+                                </div>
+                            <?php else: ?>
+                                <div class="table-responsive">
+                                    <table id="antrianTable" class="display" style="width:100%">
+                                        <thead>
+                                            <tr>
+                                                <th>No Antrian</th>
+                                                <th>Order ID</th>
+                                                <th>Nama Konsumen</th>
+                                                <th>Email</th>
+                                                <th>No HP</th>
+                                                <th>Type Kendaraan</th>
+                                                <th>Total Harga</th>
+                                                <th>Status</th>
+                                                <th>Tanggal Masuk</th>
+                                                <th>Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($transaksi as $index => $item): ?>
+                                                <tr>
+                                                    <td>
+                                                        <span class="badge bg-primary"><?= str_pad($index + 1, 3, '0', STR_PAD_LEFT) ?></span>
+                                                        <?php
+                                                        // Menentukan prioritas berdasarkan waktu tunggu
+                                                        $waktu_tunggu = (time() - strtotime($item['created_at'])) / 3600; // dalam jam
+                                                        if ($waktu_tunggu > 24): ?>
+                                                            <span class="priority-badge priority-high">Prioritas</span>
+                                                        <?php else: ?>
+                                                            <span class="priority-badge priority-normal">Normal</span>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td>
+                                                        <strong><?= htmlspecialchars($item['order_id']) ?></strong>
+                                                    </td>
+                                                    <td><?= htmlspecialchars($item['nama']) ?></td>
+                                                    <td><?= htmlspecialchars($item['email']) ?></td>
+                                                    <td><?= htmlspecialchars($item['nohp']) ?></td>
+                                                    <td>
+                                                        <span class="badge bg-info"><?= htmlspecialchars($item['type_kendaraan']) ?></span>
+                                                    </td>
+                                                    <td>
+                                                        <strong>Rp <?= number_format($item['total_harga'], 0, ',', '.') ?></strong>
+                                                    </td>
+                                                    <td>
+                                                        <span class="status-badge status-menunggu">
+                                                            <i class="fas fa-clock"></i> Menunggu
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <?= date('d/m/Y H:i', strtotime($item['created_at'])) ?>
+                                                        <br>
+                                                        <small class="text-muted">
+                                                            <?php
+                                                            $waktu_tunggu = time() - strtotime($item['created_at']);
+                                                            if ($waktu_tunggu < 3600) {
+                                                                echo floor($waktu_tunggu / 60) . ' menit lalu';
+                                                            } elseif ($waktu_tunggu < 86400) {
+                                                                echo floor($waktu_tunggu / 3600) . ' jam lalu';
+                                                            } else {
+                                                                echo floor($waktu_tunggu / 86400) . ' hari lalu';
+                                                            }
+                                                            ?>
+                                                        </small>
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group-vertical" role="group">
+                                                            <button class="btn btn-confirm btn-sm mb-1"
+                                                                onclick="konfirmasiDikerjakan(<?= $item['id_transaksi'] ?>, '<?= htmlspecialchars($item['order_id']) ?>')">
+                                                                <i class="fas fa-check-circle"></i> Kerjakan
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -297,7 +391,7 @@ $transaksi = $stmt->fetchAll();
 
     <script>
         $(document).ready(function() {
-            $('#transaksiTable').DataTable({
+            $('#antrianTable').DataTable({
                 dom: 'Bfrtip',
                 buttons: [
                     'copy', 'csv', 'excel', 'pdf', 'print'
@@ -318,8 +412,8 @@ $transaksi = $stmt->fetchAll();
                 },
                 responsive: true,
                 order: [
-                    [8, 'desc']
-                ], // Sort by date column (index 8) descending
+                    [8, 'asc']
+                ], // Sort by date column (index 8) ascending (oldest first)
                 columnDefs: [{
                         targets: [6], // Total Harga column
                         className: 'text-right'
@@ -333,7 +427,9 @@ $transaksi = $stmt->fetchAll();
                         className: 'text-center',
                         orderable: false
                     }
-                ]
+                ],
+                pageLength: 10,
+                lengthMenu: [5, 10, 25, 50, 100]
             });
 
             // Show alert if exists
@@ -346,44 +442,50 @@ $transaksi = $stmt->fetchAll();
                     timer: 3000
                 });
             <?php endif; ?>
+
+            // Auto refresh every 30 seconds
+            setInterval(function() {
+                location.reload();
+            }, 30000);
         });
 
-        // Function untuk delete transaksi
-        function deleteTransaksi(idTransaksi) {
+        // Function untuk konfirmasi dikerjakan
+        function konfirmasiDikerjakan(idTransaksi, orderId) {
             Swal.fire({
-                title: 'Konfirmasi Hapus',
+                title: 'Konfirmasi Pengerjaan',
                 html: `
-            <div style="text-align: center;">
-                <i class="fas fa-trash" style="font-size: 3rem; color: #e74c3c; margin-bottom: 20px;"></i>
-                <p>Apakah Anda yakin ingin menghapus transaksi ini?</p>
-                <p style="color: #666; font-size: 14px;">Data yang sudah dihapus tidak dapat dikembalikan</p>
-            </div>
-        `,
-                icon: 'warning',
+                    <div style="text-align: center;">
+                        <i class="fas fa-tools" style="font-size: 3rem; color: #28a745; margin-bottom: 20px;"></i>
+                        <p><strong>Order ID: ${orderId}</strong></p>
+                        <p>Apakah Anda yakin akan mengambil dan mengerjakan transaksi ini?</p>
+                        <p style="color: #666; font-size: 14px;">Status akan berubah menjadi "Dikerjakan" dan Anda akan menjadi mekanik yang bertanggung jawab</p>
+                    </div>
+                `,
+                icon: 'question',
                 showCancelButton: true,
-                confirmButtonColor: '#e74c3c',
+                confirmButtonColor: '#28a745',
                 cancelButtonColor: '#95a5a6',
-                confirmButtonText: '<i class="fas fa-trash"></i> Hapus',
+                confirmButtonText: '<i class="fas fa-check-circle"></i> Ya, Kerjakan',
                 cancelButtonText: '<i class="fas fa-times"></i> Batal',
                 reverseButtons: true,
             }).then((result) => {
                 if (result.isConfirmed) {
                     // Show loading
                     Swal.fire({
-                        title: 'Menghapus Data...',
-                        text: 'Sedang memproses penghapusan transaksi',
+                        title: 'Memproses...',
+                        text: 'Sedang mengkonfirmasi pengerjaan transaksi',
                         allowOutsideClick: false,
                         didOpen: () => {
                             Swal.showLoading();
                         }
                     });
 
-                    // Send AJAX request to delete
+                    // Send AJAX request
                     $.ajax({
                         url: window.location.href,
                         method: 'POST',
                         data: {
-                            action: 'delete',
+                            action: 'konfirmasi_dikerjakan',
                             id_transaksi: idTransaksi
                         },
                         dataType: 'json',
@@ -392,7 +494,7 @@ $transaksi = $stmt->fetchAll();
                                 Swal.fire({
                                     icon: 'success',
                                     title: 'Berhasil!',
-                                    text: 'Transaksi berhasil dihapus.',
+                                    text: 'Transaksi berhasil dikonfirmasi. Status berubah menjadi "Dikerjakan".',
                                     showConfirmButton: false,
                                     timer: 2000
                                 }).then(() => {
@@ -402,7 +504,7 @@ $transaksi = $stmt->fetchAll();
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Error!',
-                                    text: response.message || 'Terjadi kesalahan dalam menghapus transaksi'
+                                    text: response.message || 'Terjadi kesalahan dalam konfirmasi transaksi'
                                 });
                             }
                         },

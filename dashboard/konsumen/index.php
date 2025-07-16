@@ -2,6 +2,20 @@
 session_start();
 include '../../db/koneksi.php';
 
+// Pengecekan session untuk redirect jika sudah login
+if (isset($_SESSION['role'])) {
+    if ($_SESSION['role'] === 'mekanik') {
+        header("Location: ../dashboard/mekanik/index.php");
+        exit();
+    } else if ($_SESSION['role'] === 'kasir') {
+        header("Location: ../dashboard/kasir/index.php");
+        exit();
+    } else if ($_SESSION['role'] === 'administrator') {
+        header("Location: ../dashboard/admin/index.php");
+        exit();
+    }
+}
+
 // Inisialisasi variabel untuk alert
 $alert_message = '';
 $alert_type = '';

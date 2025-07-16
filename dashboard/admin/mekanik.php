@@ -8,6 +8,21 @@ $alert_type = '';
 $alert_title = '';
 $alert_icon = '';
 
+// Pengecekan session untuk redirect jika sudah login
+if (isset($_SESSION['role'])) {
+    if ($_SESSION['role'] === 'mekanik') {
+        header("Location: ../dashboard/mekanik/index.php");
+        exit();
+    } else if ($_SESSION['role'] === 'kasir') {
+        header("Location: ../dashboard/kasir/index.php");
+        exit();
+    } else if ($_SESSION['role'] === 'konsumen') {
+        header("Location: ../dashboard/konsumen/index.php");
+        exit();
+    }
+}
+
+
 // Process CRUD operations
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {

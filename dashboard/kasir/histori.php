@@ -8,6 +8,20 @@ $alert_type = '';
 $alert_title = '';
 $alert_icon = '';
 
+// Pengecekan session untuk redirect jika sudah login
+if (isset($_SESSION['role'])) {
+    if ($_SESSION['role'] === 'mekanik') {
+        header("Location: ../dashboard/mekanik/index.php");
+        exit();
+    } else if ($_SESSION['role'] === 'administrator') {
+        header("Location: ../dashboard/admin/index.php");
+        exit();
+    } else if ($_SESSION['role'] === 'konsumen') {
+        header("Location: ../dashboard/konsumen/index.php");
+        exit();
+    }
+}
+
 // Include Midtrans configuration
 require_once '../../config/midtrans.php';
 
