@@ -104,9 +104,9 @@ $alert_icon = isset($_SESSION['alert_icon']) ? $_SESSION['alert_icon'] : '';
 
 // Hapus alert dari session setelah digunakan
 unset($_SESSION['alert_message'], $_SESSION['alert_type'], $_SESSION['alert_title'], $_SESSION['alert_icon']);
-
+$id_user = $_SESSION['id_user'];
 // Fetch transaksi with specific status
-$stmt = $pdo->prepare("SELECT t.*, u.nama, u.email, u.nohp FROM tb_transaksi t JOIN tb_user u ON t.id_user = u.id_user WHERE t.status_pembayaran IN ('menunggu', 'dikerjakan', 'selesai', 'pending') ORDER BY t.created_at DESC");
+$stmt = $pdo->prepare("SELECT t.*, u.nama, u.email, u.nohp FROM tb_transaksi t JOIN tb_user u ON t.id_user = u.id_user WHERE t.status_pembayaran IN ('menunggu', 'dikerjakan', 'selesai', 'pending') AND u.id_user = '$id_user' ORDER BY t.created_at DESC");
 $stmt->execute();
 $transaksi = $stmt->fetchAll();
 ?>
@@ -270,17 +270,7 @@ $transaksi = $stmt->fetchAll();
                                             </td>
                                             <td><?= date('d/m/Y H:i', strtotime($item['created_at'])) ?></td>
                                             <td>
-                                                <?php if ($item['status_pembayaran'] == 'selesai'): ?>
-                                                    <button class="btn btn-bayar btn-sm" onclick="bayarTransaksi(<?= $item['id_transaksi'] ?>)">
-                                                        <i class="fas fa-qrcode"></i> Bayar QRIS
-                                                    </button>
-                                                <?php elseif ($item['status_pembayaran'] == 'pending'): ?>
-                                                    <button class="btn btn-bayar btn-sm" onclick="bayarTransaksi(<?= $item['id_transaksi'] ?>)">
-                                                        <i class="fas fa-qrcode"></i> Bayar QRIS
-                                                    </button>
-                                                <?php else: ?>
-                                                    <span class="text-muted">-</span>
-                                                <?php endif; ?>
+                                                -
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

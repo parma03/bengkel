@@ -22,6 +22,79 @@ if (isset($_SESSION['role'])) {
     }
 }
 
+// Include Midtrans configuration
+require_once '../../config/midtrans.php';
+
+// Process payment with Midtrans
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (isset($_POST['action']) && $_POST['action'] == 'bayar') {
+        try {
+            $id_transaksi = $_POST['id_transaksi'];
+
+            // Get transaction details
+            $stmt = $pdo->prepare("SELECT t.*, u.nama, u.email, u.nohp FROM tb_transaksi t JOIN tb_user u ON t.id_user = u.id_user WHERE t.id_transaksi = ?");
+            $stmt->execute([$id_transaksi]);
+            $transaksi = $stmt->fetch();
+
+            if (!$transaksi) {
+                throw new Exception('Transaksi tidak ditemukan');
+            }
+            // Generate unique order ID
+            $order_id = 'ORDER-' . $id_transaksi . '-' . time();
+
+            // Midtrans transaction parameters
+            $params = [
+                'transaction_details' => [
+                    'order_id' => $order_id,
+                    'gross_amount' => (int)$transaksi['total_harga'],
+                ],
+                'customer_details' => [
+                    'first_name' => $transaksi['nama'],
+                    'email' => $transaksi['email'],
+                    'phone' => $transaksi['nohp'],
+                ],
+                'item_details' => [
+                    [
+                        'id' => 'service-' . $id_transaksi,
+                        'price' => (int)$transaksi['total_harga'],
+                        'quantity' => 1,
+                        'name' => 'Service ' . $transaksi['type_kendaraan'],
+                    ]
+                ],
+                'enabled_payments' => ['gopay'],
+                'custom_expiry' => [
+                    'order_time' => date('Y-m-d H:i:s O'),
+                    'expiry_duration' => 15, // 15 menit
+                    'unit' => 'minute'
+                ]
+            ];
+
+            // Create Snap token
+            $snapToken = \Midtrans\Snap::getSnapToken($params);
+
+            // Update transaction with order_id and snap_token
+            $stmt = $pdo->prepare("UPDATE tb_transaksi SET order_id = ?, snap_token = ?, status_pembayaran = 'paid', updated_at = NOW() WHERE id_transaksi = ?");
+            $stmt->execute([$order_id, $snapToken, $id_transaksi]);
+
+            // Return success response
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'snap_token' => $snapToken,
+                'order_id' => $order_id
+            ]);
+            exit();
+        } catch (Exception $e) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+            exit();
+        }
+    }
+}
+
 // Ambil alert dari session dan hapus setelah digunakan
 $alert_message = isset($_SESSION['alert_message']) ? $_SESSION['alert_message'] : '';
 $alert_type = isset($_SESSION['alert_type']) ? $_SESSION['alert_type'] : '';
@@ -75,7 +148,7 @@ $transaksi = $stmt->fetchAll();
     <!-- SweetAlert2 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 
-    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="Mid-client-HxtMaomSfaOxOq09"></script>
+    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="SB-Mid-client-qz4dsSPdnxp1Ztqd"></script>
 
     <style>
         .status-badge {
@@ -176,6 +249,7 @@ $transaksi = $stmt->fetchAll();
                                         <th>Total Harga</th>
                                         <th>Status</th>
                                         <th>Tanggal</th>
+                                        <th>Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -194,6 +268,19 @@ $transaksi = $stmt->fetchAll();
                                                 </span>
                                             </td>
                                             <td><?= date('d/m/Y H:i', strtotime($item['created_at'])) ?></td>
+                                            <td>
+                                                <?php if ($item['status_pembayaran'] == 'selesai'): ?>
+                                                    <button class="btn btn-bayar btn-sm" onclick="bayarTransaksi(<?= $item['id_transaksi'] ?>)">
+                                                        <i class="fas fa-qrcode"></i> Bayar QRIS
+                                                    </button>
+                                                <?php elseif ($item['status_pembayaran'] == 'pending'): ?>
+                                                    <button class="btn btn-bayar btn-sm" onclick="bayarTransaksi(<?= $item['id_transaksi'] ?>)">
+                                                        <i class="fas fa-qrcode"></i> Bayar QRIS
+                                                    </button>
+                                                <?php else: ?>
+                                                    <span class="text-muted">-</span>
+                                                <?php endif; ?>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -277,6 +364,109 @@ $transaksi = $stmt->fetchAll();
                 });
             <?php endif; ?>
         });
+
+        // Function untuk bayar transaksi dengan QRIS
+        function bayarTransaksi(idTransaksi) {
+            Swal.fire({
+                title: 'Konfirmasi Pembayaran',
+                html: `
+            <div style="text-align: center;">
+                <i class="fas fa-qrcode" style="font-size: 3rem; color: #00d4aa; margin-bottom: 20px;"></i>
+                <p>Anda akan melakukan pembayaran dengan <strong>QRIS</strong></p>
+                <p style="color: #666; font-size: 14px;">Scan QR Code menggunakan aplikasi mobile banking atau e-wallet Anda</p>
+            </div>
+        `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#00d4aa',
+                cancelButtonColor: '#95a5a6',
+                confirmButtonText: '<i class="fas fa-credit-card"></i> Bayar Sekarang',
+                cancelButtonText: '<i class="fas fa-times"></i> Batal',
+                reverseButtons: true,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading
+                    Swal.fire({
+                        title: 'Memproses Pembayaran...',
+                        text: 'Sedang menyiapkan pembayaran QRIS',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Send AJAX request to create payment
+                    $.ajax({
+                        url: window.location.href,
+                        method: 'POST',
+                        data: {
+                            action: 'bayar',
+                            id_transaksi: idTransaksi
+                        },
+                        dataType: 'json',
+                        success: function(response) {
+                            if (response.success) {
+                                // Close loading
+                                Swal.close();
+
+                                // Open Midtrans Snap
+                                window.snap.pay(response.snap_token, {
+                                    onSuccess: function(result) {
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: 'Pembayaran Berhasil!',
+                                            text: 'Terima kasih, pembayaran Anda telah berhasil diproses.',
+                                            showConfirmButton: false,
+                                            timer: 3000
+                                        }).then(() => {
+                                            location.reload();
+                                        });
+                                    },
+                                    onPending: function(result) {
+                                        Swal.fire({
+                                            icon: 'info',
+                                            title: 'Pembayaran Pending',
+                                            text: 'Pembayaran Anda sedang diproses. Silakan cek status pembayaran secara berkala.',
+                                            showConfirmButton: false,
+                                            timer: 3000
+                                        }).then(() => {
+                                            location.reload();
+                                        });
+                                    },
+                                    onError: function(result) {
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'Pembayaran Gagal!',
+                                            text: 'Terjadi kesalahan dalam proses pembayaran. Silakan coba lagi.',
+                                        });
+                                    },
+                                    onClose: function() {
+                                        Swal.fire({
+                                            icon: 'warning',
+                                            title: 'Pembayaran Dibatalkan',
+                                            text: 'Anda menutup halaman pembayaran. Silakan coba lagi jika ingin melanjutkan pembayaran.',
+                                        });
+                                    }
+                                });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error!',
+                                    text: response.message || 'Terjadi kesalahan dalam memproses pembayaran'
+                                });
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error!',
+                                text: 'Terjadi kesalahan koneksi. Silakan coba lagi.'
+                            });
+                        }
+                    });
+                }
+            });
+        }
     </script>
 
 </body>

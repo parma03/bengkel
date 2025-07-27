@@ -34,9 +34,10 @@ $alert_icon = isset($_SESSION['alert_icon']) ? $_SESSION['alert_icon'] : '';
 
 // Hapus alert dari session setelah digunakan
 unset($_SESSION['alert_message'], $_SESSION['alert_type'], $_SESSION['alert_title'], $_SESSION['alert_icon']);
+$id_user = $_SESSION['id_user'];
 
 // Fetch transaksi with specific status
-$stmt = $pdo->prepare("SELECT t.*, u.nama, u.email, u.nohp FROM tb_transaksi t JOIN tb_user u ON t.id_user = u.id_user WHERE t.status_pembayaran = 'paid' ORDER BY t.created_at DESC");
+$stmt = $pdo->prepare("SELECT t.*, u.nama, u.email, u.nohp FROM tb_transaksi t JOIN tb_user u ON t.id_user = u.id_user WHERE t.status_pembayaran = 'paid' AND u.id_user = '$id_user' ORDER BY t.created_at DESC");
 $stmt->execute();
 $transaksi = $stmt->fetchAll();
 ?>
