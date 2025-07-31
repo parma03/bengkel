@@ -28,10 +28,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         try {
             $id_user = $_SESSION['id_user'];
             $type_kendaraan = $_POST['type_kendaraan'];
+            $nama_booking = $_POST['nama_booking'];
+            $plat = $_POST['plat'];
             $status_pembayaran = 'menunggu';
 
-            $stmt = $pdo->prepare("INSERT INTO tb_transaksi (id_user, type_kendaraan, status_pembayaran, created_at) VALUES (?, ?, ?, NOW())");
-            $stmt->execute([$id_user, $type_kendaraan, $status_pembayaran]);
+            $stmt = $pdo->prepare("INSERT INTO tb_transaksi (id_user, type_kendaraan, nama_booking, plat, status_pembayaran, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+            $stmt->execute([$id_user, $type_kendaraan, $nama_booking, $plat, $status_pembayaran]);
 
             $_SESSION['alert_message'] = 'Booking berhasil dibuat! Anda akan dihubungi untuk konfirmasi jadwal.';
             $_SESSION['alert_type'] = 'success';
@@ -280,6 +282,29 @@ $user_info = $stmt->fetch();
             margin-bottom: 20px;
             border-left: 4px solid #667eea;
         }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .form-control.invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+
+        .invalid-feedback {
+            display: block;
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 
@@ -327,6 +352,8 @@ $user_info = $stmt->fetch();
                             <h5><i class="fas fa-info-circle me-2"></i>Booking Aktif Anda</h5>
                             <?php foreach ($current_bookings as $booking): ?>
                                 <div class="mb-3">
+                                    <strong>Nama Booking:</strong> <?= htmlspecialchars($booking['nama_booking']) ?><br>
+                                    <strong>Plat Kendaraan:</strong> <?= htmlspecialchars($booking['plat']) ?><br>
                                     <strong>Kendaraan:</strong> <?= htmlspecialchars($booking['type_kendaraan']) ?><br>
                                     <strong>Status:</strong>
                                     <span class="status-badge status-<?= $booking['status_pembayaran'] ?>">
@@ -351,8 +378,40 @@ $user_info = $stmt->fetch();
                         <form method="POST" id="bookingForm">
                             <input type="hidden" name="action" value="booking">
 
-                            <div class="mb-4">
-                                <label class="form-label">Pilih Jenis Kendaraan</label>
+                            <!-- Nama Booking -->
+                            <div class="form-group">
+                                <label class="form-label" for="nama_booking">
+                                    <i class="fas fa-user me-2"></i>Nama untuk Booking
+                                </label>
+                                <input type="text"
+                                    class="form-control"
+                                    id="nama_booking"
+                                    name="nama_booking"
+                                    placeholder="Masukkan nama untuk booking (misal: nama pemilik kendaraan)"
+                                    required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+
+                            <!-- Plat Kendaraan -->
+                            <div class="form-group">
+                                <label class="form-label" for="plat">
+                                    <i class="fas fa-id-card me-2"></i>Plat Kendaraan
+                                </label>
+                                <input type="text"
+                                    class="form-control"
+                                    id="plat"
+                                    name="plat"
+                                    placeholder="Masukkan nomor plat kendaraan (misal: B 1234 XYZ)"
+                                    style="text-transform: uppercase;"
+                                    required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+
+                            <!-- Jenis Kendaraan -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-motorcycle me-2"></i>Pilih Jenis Kendaraan
+                                </label>
                                 <div class="vehicle-options">
                                     <div class="vehicle-option" onclick="selectVehicle(this, 'Motor')">
                                         <input type="radio" name="type_kendaraan" value="Motor" required>
@@ -397,11 +456,11 @@ $user_info = $stmt->fetch();
                                         <div class="queue-number-small"><?= $index + 1 ?></div>
                                         <div class="flex-grow-1">
                                             <h6 class="mb-1">
-                                                <?= htmlspecialchars($booking['nama']) ?>
+                                                <?= htmlspecialchars($booking['nama_booking']) ?> (<?= htmlspecialchars($booking['plat']) ?>)
                                                 <?= ($booking['id_user'] == $_SESSION['id_user']) ? '<span class="badge bg-primary">Anda</span>' : '' ?>
                                             </h6>
                                             <p class="text-muted mb-1">
-                                                <i class="fas fa-car me-1"></i>
+                                                <i class="fas fa-motorcycle me-1"></i>
                                                 <?= htmlspecialchars($booking['type_kendaraan']) ?>
                                             </p>
                                             <small class="text-muted">
@@ -468,28 +527,108 @@ $user_info = $stmt->fetch();
             element.querySelector('input[type="radio"]').checked = true;
         }
 
-        // Form submission with confirmation
-        document.getElementById('bookingForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        // Auto uppercase plat kendaraan
+        document.getElementById('plat').addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
 
+        // Form validation
+        function validateForm() {
+            let isValid = true;
+
+            // Validate nama booking
+            const namaBooking = document.getElementById('nama_booking');
+            const namaValue = namaBooking.value.trim();
+
+            if (namaValue === '') {
+                showFieldError(namaBooking, 'Nama booking harus diisi');
+                isValid = false;
+            } else if (namaValue.length < 2) {
+                showFieldError(namaBooking, 'Nama booking minimal 2 karakter');
+                isValid = false;
+            } else {
+                clearFieldError(namaBooking);
+            }
+
+            // Validate plat
+            const plat = document.getElementById('plat');
+            const platValue = plat.value.trim();
+
+            if (platValue === '') {
+                showFieldError(plat, 'Plat kendaraan harus diisi');
+                isValid = false;
+            } else if (platValue.length < 3) {
+                showFieldError(plat, 'Plat kendaraan minimal 3 karakter');
+                isValid = false;
+            } else {
+                clearFieldError(plat);
+            }
+
+            // Validate vehicle selection
             const selectedVehicle = document.querySelector('input[name="type_kendaraan"]:checked');
-
             if (!selectedVehicle) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Pilih Kendaraan',
                     text: 'Silakan pilih jenis kendaraan terlebih dahulu',
                 });
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        function showFieldError(field, message) {
+            field.classList.add('invalid');
+            const feedback = field.nextElementSibling;
+            if (feedback && feedback.classList.contains('invalid-feedback')) {
+                feedback.textContent = message;
+            }
+        }
+
+        function clearFieldError(field) {
+            field.classList.remove('invalid');
+            const feedback = field.nextElementSibling;
+            if (feedback && feedback.classList.contains('invalid-feedback')) {
+                feedback.textContent = '';
+            }
+        }
+
+        // Clear error on input
+        document.getElementById('nama_booking').addEventListener('input', function() {
+            if (this.value.trim() !== '') {
+                clearFieldError(this);
+            }
+        });
+
+        document.getElementById('plat').addEventListener('input', function() {
+            if (this.value.trim() !== '') {
+                clearFieldError(this);
+            }
+        });
+
+        // Form submission with confirmation
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (!validateForm()) {
                 return;
             }
+
+            const namaBooking = document.getElementById('nama_booking').value.trim();
+            const plat = document.getElementById('plat').value.trim();
+            const selectedVehicle = document.querySelector('input[name="type_kendaraan"]:checked');
 
             Swal.fire({
                 title: 'Konfirmasi Booking',
                 html: `
                     <div style="text-align: center;">
                         <i class="fas fa-${selectedVehicle.value === 'Motor' ? 'motorcycle' : selectedVehicle.value === 'Mobil' ? 'car' : 'truck'}" style="font-size: 3rem; color: #667eea; margin-bottom: 20px;"></i>
-                        <p>Anda akan membuat booking untuk:</p>
-                        <h4 style="color: #667eea; margin: 10px 0;">${selectedVehicle.value}</h4>
+                        <div style="text-align: left; background: #f8f9ff; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                            <p style="margin: 5px 0;"><strong>Nama Booking:</strong> ${namaBooking}</p>
+                            <p style="margin: 5px 0;"><strong>Plat Kendaraan:</strong> ${plat}</p>
+                            <p style="margin: 5px 0;"><strong>Jenis Kendaraan:</strong> ${selectedVehicle.value}</p>
+                        </div>
                         <p style="color: #666; font-size: 14px;">Setelah booking dibuat, Anda akan masuk ke dalam antrian dan akan dihubungi untuk konfirmasi jadwal.</p>
                     </div>
                 `,
@@ -500,6 +639,7 @@ $user_info = $stmt->fetch();
                 confirmButtonText: '<i class="fas fa-check"></i> Ya, Buat Booking',
                 cancelButtonText: '<i class="fas fa-times"></i> Batal',
                 reverseButtons: true,
+                width: 500
             }).then((result) => {
                 if (result.isConfirmed) {
                     // Show loading

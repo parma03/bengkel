@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 16, 2025 at 04:52 AM
+-- Generation Time: Jul 31, 2025 at 11:48 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -57,6 +57,21 @@ CREATE TABLE `tb_pengerjaan` (
   `id_barang_or_service` bigint(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `tb_pengerjaan`
+--
+
+INSERT INTO `tb_pengerjaan` (`id_pengerjaan`, `id_transaksi`, `id_barang_or_service`) VALUES
+(1, 3, 1),
+(2, 3, 2),
+(3, 3, -3),
+(4, 3, -2),
+(5, 4, 1),
+(6, 4, 2),
+(7, 4, -3),
+(8, 4, -2),
+(9, 4, -1);
+
 -- --------------------------------------------------------
 
 --
@@ -89,6 +104,8 @@ INSERT INTO `tb_service` (`id_service`, `nama_service`, `harga_service`, `create
 CREATE TABLE `tb_transaksi` (
   `id_transaksi` bigint(11) NOT NULL,
   `id_user` bigint(11) NOT NULL,
+  `nama_booking` varchar(255) DEFAULT NULL,
+  `plat` varchar(255) DEFAULT NULL,
   `type_kendaraan` varchar(255) NOT NULL,
   `total_harga` decimal(10,2) DEFAULT NULL,
   `status_pembayaran` enum('pending','paid','failed','cancelled','menunggu','dikerjakan','selesai') NOT NULL,
@@ -102,8 +119,13 @@ CREATE TABLE `tb_transaksi` (
 -- Dumping data for table `tb_transaksi`
 --
 
-INSERT INTO `tb_transaksi` (`id_transaksi`, `id_user`, `type_kendaraan`, `total_harga`, `status_pembayaran`, `order_id`, `snap_token`, `created_at`, `updated_at`) VALUES
-(3, 8, 'Motor', 100000.00, 'dikerjakan', 'ORDER-3-1752498617', '3d6d69a9-16bf-4d44-b3ec-b661ec55c81b', '2025-07-14 18:39:23', '2025-07-16 09:47:08');
+INSERT INTO `tb_transaksi` (`id_transaksi`, `id_user`, `nama_booking`, `plat`, `type_kendaraan`, `total_harga`, `status_pembayaran`, `order_id`, `snap_token`, `created_at`, `updated_at`) VALUES
+(3, 8, NULL, NULL, 'Motor', 125000.00, 'selesai', 'ORDER-3-1752498617', '3d6d69a9-16bf-4d44-b3ec-b661ec55c81b', '2025-07-14 18:39:23', '2025-07-16 11:43:53'),
+(4, 12, NULL, NULL, 'Motor', 135000.00, 'paid', 'ORDER-4-1753626006', '9d9c6ffb-5e65-4ed1-bc89-df4072d6f7ea', '2025-07-27 20:56:57', '2025-07-27 21:20:06'),
+(5, 11, NULL, NULL, 'Truk', NULL, 'dikerjakan', NULL, NULL, '2025-07-31 13:26:35', '2025-07-31 13:26:53'),
+(6, 5, NULL, NULL, 'Motor', NULL, 'menunggu', NULL, NULL, '2025-07-31 13:36:32', NULL),
+(7, 5, NULL, NULL, 'Motor', NULL, 'menunggu', NULL, NULL, '2025-07-31 13:39:12', NULL),
+(8, 5, 'ade', 'BA 7748 OE', 'Motor', NULL, 'menunggu', NULL, NULL, '2025-07-31 16:48:36', NULL);
 
 -- --------------------------------------------------------
 
@@ -136,7 +158,9 @@ INSERT INTO `tb_user` (`id_user`, `nama`, `nohp`, `email`, `password`, `role`, `
 (6, 'tesmekanik1', 8999247, 'tesmekanik1@gmail.com', '123', 'mekanik', '687167c5075ca.jpg', '2025-07-12 02:36:37', '2025-07-12 02:37:11'),
 (7, 'tesmekanik2', 8992746, 'tesmekanik2@gmail.com', '123', 'mekanik', NULL, '2025-07-12 02:37:00', NULL),
 (8, 'teskonsumen1', 877734664, 'teskonsumen1@gmail.com', '123', 'konsumen', '', '2025-07-12 02:41:31', '2025-07-12 02:41:54'),
-(9, 'teskonsumen2', 1097374743, 'teskonsumen2@gmail.com', '123', 'konsumen', '687168fba912e.jpg', '2025-07-12 02:41:47', NULL);
+(9, 'teskonsumen2', 1097374743, 'teskonsumen2@gmail.com', '123', 'konsumen', '687168fba912e.jpg', '2025-07-12 02:41:47', NULL),
+(11, 'teskonsumen1 1', 0, 'teskonsumen12@gmail.com', '123', 'konsumen', 'default.jpg', NULL, NULL),
+(12, 'tesbaru1', 2147483647, 'tesbaru1@mail.com', '123', 'konsumen', NULL, '2025-07-27 20:56:42', NULL);
 
 --
 -- Indexes for dumped tables
@@ -189,7 +213,7 @@ ALTER TABLE `tb_barang`
 -- AUTO_INCREMENT for table `tb_pengerjaan`
 --
 ALTER TABLE `tb_pengerjaan`
-  MODIFY `id_pengerjaan` bigint(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_pengerjaan` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `tb_service`
@@ -201,13 +225,13 @@ ALTER TABLE `tb_service`
 -- AUTO_INCREMENT for table `tb_transaksi`
 --
 ALTER TABLE `tb_transaksi`
-  MODIFY `id_transaksi` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id_transaksi` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `tb_user`
 --
 ALTER TABLE `tb_user`
-  MODIFY `id_user` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id_user` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
