@@ -7,8 +7,8 @@ if (isset($_SESSION['role'])) {
     if ($_SESSION['role'] === 'mekanik') {
         header("Location: ../dashboard/mekanik/index.php");
         exit();
-    } else if ($_SESSION['role'] === 'kasir') {
-        header("Location: ../dashboard/kasir/index.php");
+    } else if ($_SESSION['role'] === 'konsumen') {
+        header("Location: ../dashboard/konsumen/index.php");
         exit();
     } else if ($_SESSION['role'] === 'administrator') {
         header("Location: ../dashboard/admin/index.php");
@@ -59,9 +59,9 @@ $alert_icon = isset($_SESSION['alert_icon']) ? $_SESSION['alert_icon'] : '';
 unset($_SESSION['alert_message'], $_SESSION['alert_type'], $_SESSION['alert_title'], $_SESSION['alert_icon']);
 
 // Get user's current booking status
-$stmt = $pdo->prepare("SELECT * FROM tb_transaksi WHERE id_user = ? AND status_pembayaran IN ('menunggu', 'dikerjakan') ORDER BY created_at DESC LIMIT 1");
+$stmt = $pdo->prepare("SELECT * FROM tb_transaksi WHERE id_user = ? AND status_pembayaran IN ('menunggu', 'dikerjakan') ORDER BY created_at DESC");
 $stmt->execute([$_SESSION['id_user']]);
-$current_booking = $stmt->fetch();
+$current_bookings = $stmt->fetchAll();
 
 // Get waiting list (all bookings with status 'menunggu' and 'dikerjakan')
 $stmt = $pdo->prepare("
@@ -73,17 +73,6 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute();
 $waiting_list = $stmt->fetchAll();
-
-// Find user's queue position
-$queue_position = 0;
-if ($current_booking) {
-    foreach ($waiting_list as $index => $booking) {
-        if ($booking['id_transaksi'] == $current_booking['id_transaksi']) {
-            $queue_position = $index + 1;
-            break;
-        }
-    }
-}
 
 // Get user info
 $stmt = $pdo->prepare("SELECT * FROM tb_user WHERE id_user = ?");
@@ -283,6 +272,14 @@ $user_info = $stmt->fetch();
             padding: 20px;
             margin-bottom: 20px;
         }
+
+        .current-bookings {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
     </style>
 </head>
 
@@ -310,11 +307,11 @@ $user_info = $stmt->fetch();
             <div class="page-header">
                 <div class="page-block">
                     <div class="page-header-title">
-                        <h5 class="mb-0 font-medium">Booking Service</h5>
+                        <h5 class="mb-0 font-medium">Transaksi Management</h5>
                     </div>
                     <ul class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="dashboard.php">Dashboard</a></li>
-                        <li class="breadcrumb-item" aria-current="page">Booking Service</li>
+                        <li class="breadcrumb-item" aria-current="page">Transaksi</li>
+                        <li class="breadcrumb-item"><a href="aktif.php">Tambah Data Booking</a></li>
                     </ul>
                 </div>
             </div>
@@ -323,88 +320,64 @@ $user_info = $stmt->fetch();
             <!-- [ Main Content ] start -->
             <div class="row">
                 <div class="col-lg-8">
-                    <!-- Welcome Card -->
-                    <div class="booking-card">
-                        <h2 class="mb-3">
-                            <i class="fas fa-wrench me-2"></i>
-                            Selamat Datang, <?= htmlspecialchars($user_info['nama']) ?>!
-                        </h2>
-                        <p class="mb-0">Booking service kendaraan Anda dengan mudah dan cepat. Kami siap melayani kebutuhan perawatan kendaraan Anda.</p>
-                    </div>
 
-                    <!-- Current Booking Status -->
-                    <?php if ($current_booking): ?>
-                        <div class="alert alert-info">
-                            <h5><i class="fas fa-info-circle me-2"></i>Status Booking Anda</h5>
-                            <p class="mb-2">
-                                <strong>Kendaraan:</strong> <?= htmlspecialchars($current_booking['type_kendaraan']) ?><br>
-                                <strong>Status:</strong>
-                                <span class="status-badge status-<?= $current_booking['status_pembayaran'] ?>">
-                                    <?= ucfirst($current_booking['status_pembayaran']) ?>
-                                </span><br>
-                                <strong>Tanggal Booking:</strong> <?= date('d M Y H:i', strtotime($current_booking['created_at'])) ?>
-                            </p>
+                    <!-- Current Bookings Status -->
+                    <?php if (!empty($current_bookings)): ?>
+                        <div class="current-bookings">
+                            <h5><i class="fas fa-info-circle me-2"></i>Booking Aktif Anda</h5>
+                            <?php foreach ($current_bookings as $booking): ?>
+                                <div class="mb-3">
+                                    <strong>Kendaraan:</strong> <?= htmlspecialchars($booking['type_kendaraan']) ?><br>
+                                    <strong>Status:</strong>
+                                    <span class="status-badge status-<?= $booking['status_pembayaran'] ?>">
+                                        <?= ucfirst($booking['status_pembayaran']) ?>
+                                    </span><br>
+                                    <strong>Tanggal Booking:</strong> <?= date('d M Y H:i', strtotime($booking['created_at'])) ?>
+                                </div>
+                                <?php if (count($current_bookings) > 1): ?>
+                                    <hr>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
 
                     <!-- Booking Form -->
-                    <?php if (!$current_booking): ?>
-                        <div class="booking-form">
-                            <h4 class="mb-4">
-                                <i class="fas fa-calendar-plus me-2"></i>
-                                Buat Booking Baru
-                            </h4>
+                    <div class="booking-form">
+                        <h4 class="mb-4">
+                            <i class="fas fa-calendar-plus me-2"></i>
+                            Buat Booking Baru
+                        </h4>
 
-                            <form method="POST" id="bookingForm">
-                                <input type="hidden" name="action" value="booking">
+                        <form method="POST" id="bookingForm">
+                            <input type="hidden" name="action" value="booking">
 
-                                <div class="mb-4">
-                                    <label class="form-label">Pilih Jenis Kendaraan</label>
-                                    <div class="vehicle-options">
-                                        <div class="vehicle-option" onclick="selectVehicle(this, 'Motor')">
-                                            <input type="radio" name="type_kendaraan" value="Motor" required>
-                                            <div class="text-center">
-                                                <div class="vehicle-icon">
-                                                    <i class="fas fa-motorcycle"></i>
-                                                </div>
-                                                <h5>Motor</h5>
-                                                <p class="text-muted mb-0">Service motor, ganti oli, tune up</p>
+                            <div class="mb-4">
+                                <label class="form-label">Pilih Jenis Kendaraan</label>
+                                <div class="vehicle-options">
+                                    <div class="vehicle-option" onclick="selectVehicle(this, 'Motor')">
+                                        <input type="radio" name="type_kendaraan" value="Motor" required>
+                                        <div class="text-center">
+                                            <div class="vehicle-icon">
+                                                <i class="fas fa-motorcycle"></i>
                                             </div>
+                                            <h5>Motor</h5>
+                                            <p class="text-muted mb-0">Service motor, ganti oli, tune up</p>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div class="text-center">
-                                    <button type="submit" class="btn btn-primary btn-lg">
-                                        <i class="fas fa-calendar-check me-2"></i>
-                                        Buat Booking
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    <?php else: ?>
-                        <div class="booking-form">
-                            <div class="text-center">
-                                <i class="fas fa-clock text-warning" style="font-size: 3rem; margin-bottom: 20px;"></i>
-                                <h4>Anda sudah memiliki booking aktif</h4>
-                                <p class="text-muted">Silakan tunggu hingga booking selesai untuk membuat booking baru</p>
                             </div>
-                        </div>
-                    <?php endif; ?>
+
+                            <div class="text-center">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-calendar-check me-2"></i>
+                                    Buat Booking
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
 
                 <div class="col-lg-4">
-                    <!-- Queue Position -->
-                    <?php if ($current_booking && $queue_position > 0): ?>
-                        <div class="queue-card">
-                            <div class="text-center">
-                                <h5 class="mb-3">Posisi Antrian Anda</h5>
-                                <div class="queue-number"><?= $queue_position ?></div>
-                                <p class="mb-0">dari <?= count($waiting_list) ?> antrian</p>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-
                     <!-- Waiting List -->
                     <div class="waiting-list-card">
                         <h5 class="mb-4">

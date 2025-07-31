@@ -32,6 +32,7 @@
                             <li class="pc-item"><a class="pc-link" href="aktif.php">Aktif</a></li>
                             <li class="pc-item"><a class="pc-link" href="nonaktif.php">Non Aktif</a></li>
                             <li class="pc-item"><a class="pc-link" href="histori.php">Histori</a></li>
+                            <li class="pc-item"><a class="pc-link" href="addbooking.php">Tambah Data Booking</a></li>
                         </ul>
                     </li>
                 </ul>
